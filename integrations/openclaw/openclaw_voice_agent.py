@@ -1,15 +1,11 @@
 """
 OpenClaw Voice Agent
 
-A voice-enabled AI companion using Voxpipe + OpenClaw.
+Demo integration of Voxpipe + OpenClaw.
+Uses text input to simulate voice (actual audio integration in next step).
 
 Usage:
     python openclaw_voice_agent.py
-
-Requirements:
-    - Voxpipe running (for audio I/O)
-    - open-engine running (for state persistence)
-    - OpenClaw gateway (for AI reasoning)
 """
 
 import asyncio
@@ -20,39 +16,39 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from integrations.openclaw.bridge import VoxpipeOpenClawController
-
-# Import Voxpipe components
-from controller import AudioController
+from controller import Controller, State
 
 
 class OpenClawVoiceAgent:
     """
-    Voice agent combining Voxpipe + OpenClaw.
+    Voice agent combining Voxpipe state machine + OpenClaw brain.
     """
     
     def __init__(self):
-        self.audio = AudioController()
+        self.state_machine = Controller()
         self.brain = VoxpipeOpenClawController()
         self.is_running = False
         
     async def start(self):
         """Initialize all components"""
-        print("🔮 Doremon Voice Agent")
+        print("Doremon Voice Agent (Demo)")
         print("=" * 50)
         print()
         
         # Initialize bridge
         print("Connecting to OpenClaw...")
-        if not await self.brain.start():
-            print("⚠️  Warning: Could not connect to open-engine")
-            print("Running without persistence...")
+        connected = await self.brain.start()
+        if connected:
+            print("[OK] Connected to OpenClaw (open-engine)")
         else:
-            print("✅ Connected to OpenClaw")
+            print("[WARN] Could not connect to open-engine")
+            print("Running without persistence...")
         
         print()
-        print("Say 'wake' to start listening")
-        print("Say 'sleep' to pause")
-        print("Press Ctrl+C to stop")
+        print("Commands:")
+        print("  - Type anything to talk to Doremon")
+        print("  - 'wake' / 'sleep' to toggle state")
+        print("  - 'quit' to exit")
         print("-" * 50)
         
         self.is_running = True
@@ -62,62 +58,62 @@ class OpenClawVoiceAgent:
         """Main voice interaction loop"""
         try:
             while self.is_running:
-                # Listen for wake word or command
-                print("\n👂 Listening...")
+                # Get user input (simulates voice)
+                user_input = input("\nYou: ").strip()
                 
-                # TODO: Replace with actual Voxpipe audio capture
-                # For now, use text input for testing
-                user_input = input("You (type for test): ").strip()
-                
+                if not user_input:
+                    continue
+                    
                 if user_input.lower() == 'quit':
                     break
                     
                 if user_input.lower() == 'sleep':
-                    print("😴 Going to sleep. Say 'wake' to resume.")
-                    await self._sleep_mode()
+                    self.state_machine.set(State.IDLE)
+                    print("[SLEEP] Doremon: Going to sleep. Type 'wake' to resume.")
                     continue
                     
-                # Process through OpenClaw
-                print("🧠 Thinking...")
+                if user_input.lower() == 'wake':
+                    self.state_machine.set(State.LISTENING)
+                    print("[WAKE] Doremon: I'm awake and listening!")
+                    continue
+                
+                # Process: LISTENING -> SPEAKING
+                self.state_machine.set(State.LISTENING)
+                
+                # Send to OpenClaw brain
+                self.state_machine.set(State.SPEAKING)
+                print("[THINKING] Doremon: Processing...")
+                
                 response = await self.brain.handle_speech(user_input)
                 
                 # Speak response
-                print(f"🔮 Doremon: {response}")
+                print(f"Doremon: {response}")
                 
-                # TODO: Integrate Voxpipe TTS here
-                # self.audio.speak(response)
+                # Return to idle
+                self.state_machine.set(State.IDLE)
                 
                 await asyncio.sleep(0.1)
                 
         except KeyboardInterrupt:
-            print("\n\n👋 Goodbye!")
+            print("\n\nGoodbye!")
         finally:
             await self.stop()
             
-    async def _sleep_mode(self):
-        """Listen only for 'wake'"""
-        while self.is_running:
-            user_input = input("(Sleeping - type 'wake'): ").strip()
-            if user_input.lower() == 'wake':
-                print("✨ Waking up!")
-                break
-                
     async def stop(self):
         """Clean shutdown"""
         self.is_running = False
+        self.state_machine.set(State.IDLE)
         await self.brain.shutdown()
-        print("\n🛑 Shutdown complete")
+        print("\n[STOP] Agent stopped")
 
 
 def main():
     """Entry point"""
-    import sys
-    
     # Check for dependencies
     try:
-        from integrations.openclaw.bridge import OpenClawVoiceBridge
-    except ImportError as e:
-        print(f"❌ Missing dependency: {e}")
+        import requests
+    except ImportError:
+        print("❌ Missing dependency: requests")
         print("Install: pip install requests")
         sys.exit(1)
     
