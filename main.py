@@ -17,6 +17,7 @@ shutdown_requested = False
 
 # Interruption Handler Config
 VOLUME_THRESHOLD = 2.0  # Adjust based on your microphone
+LISTEN_TIMEOUT = 3.0  # Seconds to listen before switching to SPEAKING (demo mode)
 
 
 def signal_handler(sig, frame):
@@ -86,7 +87,11 @@ try:
         while not shutdown_requested:
             # Auto-demo: switch between states if no interruption
             if c.state == State.LISTENING:
-                while not c.listen_cancel.stop and not shutdown_requested:
+                # Listen for a few seconds, then switch to SPEAKING
+                listen_start = time.time()
+                while time.time() - listen_start < LISTEN_TIMEOUT and not shutdown_requested:
+                    if c.listen_cancel.stop:
+                        break
                     time.sleep(0.1)
                 if not shutdown_requested:
                     c.set(State.SPEAKING)
