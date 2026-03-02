@@ -76,6 +76,9 @@ tts_thread.start()
 print("Voxpipe started. Say something while I'm talking to interrupt me.")
 print("Press Ctrl+C to stop.")
 
+# Initialize: start in LISTENING state
+c.set(State.LISTENING)
+
 # Keep audio stream always running to detect interruptions
 try:
     with sd.InputStream(callback=callback):
