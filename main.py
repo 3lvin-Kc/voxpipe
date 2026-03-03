@@ -79,7 +79,9 @@ def tts_worker():
             if not speech_text:
                 speech_text = "Hello, I am Voxpipe. Say something to interrupt me."
             speak(speech_text)
-            time.sleep(2)
+            # TTS finished - signal main loop to switch to LISTENING
+            print(">>> TTS finished <<<")
+            c.set(State.LISTENING)
         time.sleep(0.1)
 
 
@@ -98,7 +100,6 @@ try:
     with sd.InputStream(callback=callback):
         print("audio stream active...")
         while not shutdown_requested:
-            # Auto-demo: switch between states if no interruption
             if c.state == State.LISTENING:
                 # Listen for a few seconds, then switch to SPEAKING
                 listen_start = time.time()
@@ -106,11 +107,11 @@ try:
                     if c.listen_cancel.stop:
                         break
                     time.sleep(0.1)
-                if not shutdown_requested:
+                if not shutdown_requested and c.state == State.LISTENING:
                     c.set(State.SPEAKING)
             elif c.state == State.SPEAKING:
+                # Wait here - TTS worker will switch back to LISTENING when done
                 time.sleep(0.5)
-                c.set(State.LISTENING)
 except Exception:
     pass
 finally:
