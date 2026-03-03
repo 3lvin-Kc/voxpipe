@@ -52,10 +52,19 @@ def callback(indata, frames, time_info, status):
     volume = np.linalg.norm(indata) * 10
     print("volume:", volume)
 
-    # INTERRUPTION HANDLER: If user speaks while app is talking, interrupt
+    # RACE CONDITION ARBITER: User always wins
     if c.state == State.SPEAKING and volume > VOLUME_THRESHOLD:
-        print("\n>>> USER INTERRUPTED - Switching to LISTENING <<<\n")
+        print("\n>>> USER INTERRUPTED - USER WINS - Queuing remaining speech <<<\n")
+        # Queue any pending speech (user wins)
+        c.queue_speech("Hello, I am Voxpipe. Say something to interrupt me.")
         c.set(State.LISTENING)
+        return
+    
+    # Track when user is speaking
+    if volume > VOLUME_THRESHOLD:
+        c.user_is_speaking = True
+    else:
+        c.user_is_speaking = False
     
     if c.listen_cancel.stop:
         raise sd.CallbackStop
@@ -65,7 +74,11 @@ def tts_worker():
     """Background thread that handles speaking."""
     while not shutdown_requested:
         if c.state == State.SPEAKING and not c.speak_cancel.stop:
-            speak("Hello, I am Voxpipe. Say something to interrupt me.")
+            # Check for queued speech first (user interrupted earlier)
+            speech_text = c.get_next_speech()
+            if not speech_text:
+                speech_text = "Hello, I am Voxpipe. Say something to interrupt me."
+            speak(speech_text)
             time.sleep(2)
         time.sleep(0.1)
 
