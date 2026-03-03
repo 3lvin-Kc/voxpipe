@@ -1,4 +1,5 @@
 from enum import Enum
+from collections import deque
 
 
 class CancelToken:
@@ -9,6 +10,9 @@ class CancelToken:
 
     def cancel(self):
         self.stop = True
+
+    def reset(self):
+        self.stop = False
 
 
 class State(Enum):
@@ -25,6 +29,24 @@ class Controller:
         self.state = State.IDLE
         self.listen_cancel = CancelToken()
         self.speak_cancel = CancelToken()
+        
+        # Race condition arbiter: queue for app's pending speech
+        self.pending_speech = deque()
+        self.user_is_speaking = False
+
+    def queue_speech(self, text):
+        """Queue app speech to be spoken after user finishes."""
+        self.pending_speech.append(text)
+
+    def get_next_speech(self):
+        """Get next queued speech, returns None if queue empty."""
+        if self.pending_speech:
+            return self.pending_speech.popleft()
+        return None
+
+    def has_pending_speech(self):
+        """Check if there are pending speeches."""
+        return len(self.pending_speech) > 0
 
     def set(self, state):
         """Switch to a new state. Automatically cancels the old operation."""
